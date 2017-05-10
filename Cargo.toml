@@ -1,0 +1,7 @@
+[package]
+name = "randd"
+version = "0.1.0"
+
+[dependencies]
+raw-cpuid = "2.0"
+redox_syscall = "0.1"
