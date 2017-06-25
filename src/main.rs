@@ -14,6 +14,7 @@ use rand::Rng;
 use raw_cpuid::CpuId;
 
 use syscall::{Packet, Result, SchemeMut};
+use syscall::data::Stat;
 
 //TODO: Use a CSPRNG, allow write of entropy
 struct RandScheme {
@@ -50,6 +51,15 @@ impl SchemeMut for RandScheme {
             i += 1;
         }
         Ok(i)
+    }
+
+    fn fstat(&mut self, id: usize, stat: &mut Stat) -> Result<usize> {
+        *stat = Stat {
+            st_mode: 0o020000 /*IFCHR*/ | 0o666,
+            ..Default::default()
+        };
+
+        Ok(0)
     }
 
     fn close(&mut self, _file: usize) -> Result<usize> {
