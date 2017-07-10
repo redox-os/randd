@@ -62,6 +62,10 @@ impl SchemeMut for RandScheme {
         Ok(0)
     }
 
+    fn fcntl(&mut self, _id: usize, _cmd: usize, _arg: usize) -> Result<usize> {
+        Ok(0)
+    }
+
     fn close(&mut self, _file: usize) -> Result<usize> {
         Ok(0)
     }
