@@ -13,7 +13,7 @@ use rand::Rng;
 
 use raw_cpuid::CpuId;
 
-use syscall::{Packet, Result, SchemeMut};
+use syscall::{Packet, Result, SchemeMut, MODE_CHR};
 use syscall::data::Stat;
 
 //TODO: Use a CSPRNG, allow write of entropy
@@ -55,7 +55,7 @@ impl SchemeMut for RandScheme {
 
     fn fstat(&mut self, id: usize, stat: &mut Stat) -> Result<usize> {
         *stat = Stat {
-            st_mode: 0o020000 /*IFCHR*/ | 0o666,
+            st_mode: MODE_CHR | 0o666,
             ..Default::default()
         };
 
