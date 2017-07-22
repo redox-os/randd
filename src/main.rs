@@ -13,8 +13,8 @@ use rand::Rng;
 
 use raw_cpuid::CpuId;
 
-use syscall::{Packet, Result, SchemeMut, MODE_CHR};
-use syscall::data::Stat;
+use syscall::{Error, Result, SchemeMut, MODE_CHR};
+use syscall::data::{Packet, Stat};
 
 //TODO: Use a CSPRNG, allow write of entropy
 struct RandScheme {
@@ -26,7 +26,11 @@ impl SchemeMut for RandScheme {
         Ok(0)
     }
 
-    fn dup(&mut self, file: usize, _buf: &[u8]) -> Result<usize> {
+    fn dup(&mut self, file: usize, buf: &[u8]) -> Result<usize> {
+        if ! buf.is_empty() {
+            return Err(Error::new(EINVAL));
+        }
+
         Ok(file)
     }
 
