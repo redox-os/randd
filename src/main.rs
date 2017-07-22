@@ -13,7 +13,7 @@ use rand::Rng;
 
 use raw_cpuid::CpuId;
 
-use syscall::{Error, Result, SchemeMut, MODE_CHR};
+use syscall::{Error, Result, SchemeMut, EINVAL, MODE_CHR};
 use syscall::data::{Packet, Stat};
 
 //TODO: Use a CSPRNG, allow write of entropy
