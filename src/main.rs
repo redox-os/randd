@@ -100,6 +100,9 @@ fn main(){
         }
 
         let mut scheme = RandScheme{prng: rng};
+
+        syscall::setrens(0, 0).expect("randd: failed to enter null namespace");
+
         loop {
             let mut packet = Packet::default();
             socket.read(&mut packet).expect("rand: failed to read events from rand scheme");
