@@ -57,7 +57,7 @@ impl SchemeMut for RandScheme {
         Ok(i)
     }
 
-    fn fstat(&mut self, id: usize, stat: &mut Stat) -> Result<usize> {
+    fn fstat(&mut self, _id: usize, stat: &mut Stat) -> Result<usize> {
         *stat = Stat {
             st_mode: MODE_CHR | 0o666,
             ..Default::default()
