@@ -7,6 +7,7 @@ extern crate rand;
 
 use std::fs::File;
 use std::io::{Read, Write};
+use std::os::unix::io::AsRawFd;
 
 use rand::chacha::ChaChaRng;
 use rand::Rng;
@@ -68,7 +69,7 @@ impl SchemeMut for RandScheme {
     }
 
     fn fevent(&mut self, id: usize, _flags: usize) -> Result<usize> {
-        self.socket.write(&syscall::Packet {
+        syscall::write(self.socket.as_raw_fd(), &syscall::Packet {
             a: syscall::SYS_FEVENT,
             b: id,
             c: syscall::EVENT_READ,
