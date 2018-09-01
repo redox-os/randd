@@ -7,6 +7,7 @@ extern crate rand;
 
 use std::fs::File;
 use std::io::{Read, Write};
+use std::os::unix::io::AsRawFd;
 
 use rand::chacha::ChaChaRng;
 use rand::Rng;
@@ -18,7 +19,8 @@ use syscall::data::{Packet, Stat};
 
 //TODO: Use a CSPRNG, allow write of entropy
 struct RandScheme {
-   prng: ChaChaRng
+    socket: File,
+    prng: ChaChaRng
 }
 
 impl SchemeMut for RandScheme {
@@ -66,6 +68,17 @@ impl SchemeMut for RandScheme {
         Ok(0)
     }
 
+    fn fevent(&mut self, id: usize, _flags: usize) -> Result<usize> {
+        syscall::write(self.socket.as_raw_fd(), &syscall::Packet {
+            a: syscall::SYS_FEVENT,
+            b: id,
+            c: syscall::EVENT_READ,
+            d: 1,
+            ..Default::default()
+        })?;
+        Ok(0)
+    }
+
     fn fcntl(&mut self, _id: usize, _cmd: usize, _arg: usize) -> Result<usize> {
         Ok(0)
     }
@@ -80,7 +93,7 @@ fn main(){
 
     // Daemonize
     if unsafe { syscall::clone(0).unwrap() } == 0 {
-        let mut socket = File::create(":rand").expect("rand: failed to create rand scheme");
+        let socket = File::create(":rand").expect("rand: failed to create rand scheme");
 
         let mut rng = ChaChaRng::new_unseeded();
 
@@ -99,15 +112,15 @@ fn main(){
             println!("rand: unseeded");
         }
 
-        let mut scheme = RandScheme{prng: rng};
+        let mut scheme = RandScheme{socket, prng: rng};
 
         syscall::setrens(0, 0).expect("randd: failed to enter null namespace");
 
         loop {
             let mut packet = Packet::default();
-            socket.read(&mut packet).expect("rand: failed to read events from rand scheme");
+            scheme.socket.read(&mut packet).expect("rand: failed to read events from rand scheme");
             scheme.handle(&mut packet);
-            socket.write(&packet).expect("rand: failed to write responses to rand scheme");
+            scheme.socket.write(&packet).expect("rand: failed to write responses to rand scheme");
         }
     }
 }
