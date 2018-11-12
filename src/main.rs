@@ -1,5 +1,4 @@
 #![feature(asm)]
-#![feature(rand)]
 
 extern crate syscall;
 extern crate raw_cpuid;
