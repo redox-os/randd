@@ -1,6 +1,8 @@
 #![feature(asm)]
 
 extern crate syscall;
+
+#[cfg(target_arch = "x86_64")]
 extern crate raw_cpuid;
 extern crate rand;
 
@@ -11,6 +13,7 @@ use std::os::unix::io::AsRawFd;
 use rand::chacha::ChaChaRng;
 use rand::Rng;
 
+#[cfg(target_arch = "x86_64")]
 use raw_cpuid::CpuId;
 
 use syscall::{Error, Result, SchemeMut, EINVAL, MODE_CHR};
@@ -88,7 +91,12 @@ impl SchemeMut for RandScheme {
 }
 
 fn main(){
-    let has_rdrand = CpuId::new().get_feature_info().unwrap().has_rdrand();
+    let has_rdrand = false;
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        has_rdrand = CpuId::new().get_feature_info().unwrap().has_rdrand();
+    }
 
     // Daemonize
     if unsafe { syscall::clone(0).unwrap() } == 0 {
