@@ -91,7 +91,7 @@ impl SchemeMut for RandScheme {
 }
 
 fn main(){
-    let has_rdrand = false;
+    let mut has_rdrand = false;
 
     #[cfg(target_arch = "x86_64")]
     {
