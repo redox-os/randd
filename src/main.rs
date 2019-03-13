@@ -18,6 +18,7 @@ use raw_cpuid::CpuId;
 
 use syscall::{Error, Result, SchemeMut, EINVAL, MODE_CHR};
 use syscall::data::{Packet, Stat};
+use syscall::flag::EVENT_READ;
 
 //TODO: Use a CSPRNG, allow write of entropy
 struct RandScheme {
@@ -70,15 +71,8 @@ impl SchemeMut for RandScheme {
         Ok(0)
     }
 
-    fn fevent(&mut self, id: usize, _flags: usize) -> Result<usize> {
-        syscall::write(self.socket.as_raw_fd(), &syscall::Packet {
-            a: syscall::SYS_FEVENT,
-            b: id,
-            c: syscall::EVENT_READ,
-            d: 1,
-            ..Default::default()
-        })?;
-        Ok(0)
+    fn fevent(&mut self, _id: usize, _flags: usize) -> Result<usize> {
+        Ok(EVENT_READ)
     }
 
     fn fcntl(&mut self, _id: usize, _cmd: usize, _arg: usize) -> Result<usize> {
