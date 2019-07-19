@@ -119,7 +119,9 @@ fn main(){
 
         loop {
             let mut packet = Packet::default();
-            scheme.socket.read(&mut packet).expect("rand: failed to read events from rand scheme");
+            if scheme.socket.read(&mut packet).expect("rand: failed to read events from rand scheme") == 0 {
+                break;
+            }
             scheme.handle(&mut packet);
             scheme.socket.write(&packet).expect("rand: failed to write responses to rand scheme");
         }
