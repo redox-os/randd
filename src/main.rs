@@ -35,8 +35,10 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::num::Wrapping;
 
-// TODO consider adding blocking read based on available entropy as per linux /dev/random
-// (compared to /dev/urandom which we are equivalent to)
+// This Daemon implements a Cryptographically Secure Random Number Generator
+// that does not block on read - i.e. it is equivalent to linux /dev/urandom
+// We do not implement blocking reads as per linux /dev/random for the reasons outlined
+// here: https://www.2uo.de/myths-about-urandom/
 
 // Default file access mode for PRNG
 const DEFAULT_PRNG_MODE: u16 = 0o644;
