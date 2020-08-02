@@ -1,4 +1,4 @@
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 extern crate syscall;
 
@@ -57,7 +57,7 @@ fn create_rdrand_seed() -> [u8; SEED_BYTES] {
                 // We get 8 bytes at a time from rdrand instruction
                 let rand: u64;
                 unsafe {
-                    asm!("rdrand rax"
+                    llvm_asm!("rdrand rax"
                     : "={rax}"(rand)
                     :
                     :

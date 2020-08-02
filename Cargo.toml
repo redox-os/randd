@@ -9,4 +9,4 @@ redox_syscall = "0.1"
 sha2 = "0.8"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
-raw-cpuid = "2.0"
+raw-cpuid = "8.1"
