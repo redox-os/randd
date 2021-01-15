@@ -23,7 +23,7 @@ pub const MODE_READ: u16 = 0o4;
 use raw_cpuid::CpuId;
 
 use syscall::data::{Packet, Stat};
-use syscall::flag::EVENT_READ;
+use syscall::flag::{CloneFlags, EventFlags};
 use syscall::{
     Error, Result, SchemeMut, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC,
     O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_STAT, O_WRONLY,
@@ -364,8 +364,8 @@ impl SchemeMut for RandScheme {
         Ok(0)
     }
 
-    fn fevent(&mut self, _id: usize, _flags: usize) -> Result<usize> {
-        Ok(EVENT_READ)
+    fn fevent(&mut self, _id: usize, _flags: EventFlags) -> Result<EventFlags> {
+        Ok(EventFlags::EVENT_READ)
     }
     fn fpath(&mut self, _file: usize, buf: &mut [u8]) -> Result<usize> {
         let mut i = 0;
@@ -397,7 +397,7 @@ impl SchemeMut for RandScheme {
 
 fn main() {
     // Daemonize
-    if unsafe { syscall::clone(0).unwrap() } == 0 {
+    if unsafe { syscall::clone(CloneFlags::empty()).unwrap() } == 0 {
         let socket = File::create(":rand").expect("rand: failed to create rand scheme");
 
         let mut scheme = RandScheme::new(socket);
