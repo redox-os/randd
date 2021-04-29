@@ -246,10 +246,10 @@ fn test_scheme_perms() {
 }
 
 impl SchemeMut for RandScheme {
-    fn open(&mut self, path: &[u8], flags: usize, uid: u32, gid: u32) -> Result<usize> {
+    fn open(&mut self, path: &str, flags: usize, uid: u32, gid: u32) -> Result<usize> {
         // We are only allowing
         // reads/writes from rand:/ and rand:/urandom - the root directory on its own is passed as an empty slice
-        if path != "".as_bytes() && path != "/urandom".as_bytes() {
+        if path != "" && path != "/urandom" {
             return Err(Error::new(ENOENT));
         }
         if flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL {
@@ -288,7 +288,7 @@ impl SchemeMut for RandScheme {
         Ok(fd.0)
     }
 
-    fn chmod(&mut self, path: &[u8], mode: u16, uid: u32, gid: u32) -> Result<usize> {
+    fn chmod(&mut self, path: &str, mode: u16, uid: u32, gid: u32) -> Result<usize> {
         // Defer to fchmod
         let fd = self.open(path, O_WRONLY, uid, gid)?;
         self.fchmod(fd, mode)
