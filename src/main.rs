@@ -10,6 +10,7 @@ extern crate sha2;
 
 use std::fs::File;
 use std::io::{Read, Write};
+use std::process;
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -23,7 +24,7 @@ pub const MODE_READ: u16 = 0o4;
 use raw_cpuid::CpuId;
 
 use syscall::data::{Packet, Stat};
-use syscall::flag::{CloneFlags, EventFlags};
+use syscall::flag::EventFlags;
 use syscall::{
     Error, Result, SchemeMut, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC,
     O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_STAT, O_WRONLY,
@@ -395,34 +396,39 @@ impl SchemeMut for RandScheme {
     }
 }
 
-fn main() {
-    // Daemonize
-    if unsafe { syscall::clone(CloneFlags::empty()).unwrap() } == 0 {
-        let socket = File::create(":rand").expect("rand: failed to create rand scheme");
+fn daemon(daemon: syscall::Daemon) -> ! {
+    let socket = File::create(":rand").expect("randd: failed to create rand scheme");
 
-        let mut scheme = RandScheme::new(socket);
+    let mut scheme = RandScheme::new(socket);
 
-        syscall::setrens(0, 0).expect("randd: failed to enter null namespace");
+    daemon.ready().expect("randd: failed to mark daemon as ready");
 
-        loop {
-            let mut packet = Packet::default();
-            match scheme.socket.read(&mut packet) {
-                Ok(s) => {
-                    if s == 0 {
-                        break;
-                    }
-                    scheme.handle(&mut packet);
-                    match scheme.socket.write(&packet) {
-                        Err(e) => println!("Error writing packet {}", e),
-                        _ => {}
-                    }
+    syscall::setrens(0, 0).expect("randd: failed to enter null namespace");
+
+    loop {
+        let mut packet = Packet::default();
+        match scheme.socket.read(&mut packet) {
+            Ok(s) => {
+                if s == 0 {
+                    break;
                 }
-                Err(e) => println!("Error reading packet {}", e),
+                scheme.handle(&mut packet);
+                match scheme.socket.write(&packet) {
+                    Err(e) => println!("Error writing packet {}", e),
+                    _ => {}
+                }
             }
-            scheme
-                .socket
-                .write(&packet)
-                .expect("rand: failed to write responses to rand scheme");
+            Err(e) => println!("Error reading packet {}", e),
         }
+        scheme
+            .socket
+            .write(&packet)
+            .expect("randd: failed to write responses to rand scheme");
     }
+
+    process::exit(0);
+}
+
+fn main() {
+    syscall::Daemon::new(daemon).expect("randd: failed to daemonize");
 }
