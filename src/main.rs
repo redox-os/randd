@@ -1,5 +1,3 @@
-#![feature(llvm_asm)]
-
 extern crate syscall;
 
 extern crate rand_chacha;
@@ -11,6 +9,8 @@ extern crate sha2;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::process;
+
+use std::arch::asm;
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -58,11 +58,7 @@ fn create_rdrand_seed() -> [u8; SEED_BYTES] {
                 // We get 8 bytes at a time from rdrand instruction
                 let rand: u64;
                 unsafe {
-                    llvm_asm!("rdrand rax"
-                    : "={rax}"(rand)
-                    :
-                    :
-                    : "intel", "volatile");
+                    asm!("rdrand rax", out("rax") rand);
                 }
 
                 rng[i * 8..(i * 8 + 8)].copy_from_slice(&rand.to_le_bytes());
@@ -396,7 +392,7 @@ impl SchemeMut for RandScheme {
     }
 }
 
-fn daemon(daemon: syscall::Daemon) -> ! {
+fn daemon(daemon: syscall::Daemon) -> core::convert::Infallible {
     let socket = File::create(":rand").expect("randd: failed to create rand scheme");
 
     let mut scheme = RandScheme::new(socket);
