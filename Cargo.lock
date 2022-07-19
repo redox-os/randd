@@ -72,6 +72,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libc"
+version = "0.2.126"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
+
+[[package]]
 name = "opaque-debug"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,6 +112,7 @@ dependencies = [
  "rand_chacha",
  "rand_core",
  "raw-cpuid",
+ "redox-daemon",
  "redox_syscall",
  "sha2",
 ]
@@ -119,6 +126,14 @@ dependencies = [
  "bitflags",
  "cc",
  "rustc_version",
+]
+
+[[package]]
+name = "redox-daemon"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "redox_syscall",
 ]
 
 [[package]]

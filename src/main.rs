@@ -392,7 +392,7 @@ impl SchemeMut for RandScheme {
     }
 }
 
-fn daemon(daemon: syscall::Daemon) -> core::convert::Infallible {
+fn daemon(daemon: redox_daemon::Daemon) -> ! {
     let socket = File::create(":rand").expect("randd: failed to create rand scheme");
 
     let mut scheme = RandScheme::new(socket);
@@ -426,5 +426,5 @@ fn daemon(daemon: syscall::Daemon) -> core::convert::Infallible {
 }
 
 fn main() {
-    syscall::Daemon::new(daemon).expect("randd: failed to daemonize");
+    redox_daemon::Daemon::new(daemon).expect("randd: failed to daemonize");
 }

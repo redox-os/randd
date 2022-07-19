@@ -5,6 +5,7 @@ version = "0.1.0"
 [dependencies]
 rand_chacha = "0.2"
 rand_core = "0.5"
+redox-daemon = "0.1"
 redox_syscall = "0.2.12"
 sha2 = "0.8"
 
