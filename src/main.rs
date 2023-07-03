@@ -416,10 +416,6 @@ fn daemon(daemon: redox_daemon::Daemon) -> ! {
             }
             Err(e) => println!("Error reading packet {}", e),
         }
-        scheme
-            .socket
-            .write(&packet)
-            .expect("randd: failed to write responses to rand scheme");
     }
 
     process::exit(0);
