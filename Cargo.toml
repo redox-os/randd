@@ -1,13 +1,16 @@
 [package]
 name = "randd"
 version = "0.1.0"
+edition = "2021"
 
 [dependencies]
 rand_chacha = "0.2"
 rand_core = "0.5"
-redox-daemon = "0.1.1"
-redox_syscall = "0.3"
+redox-daemon = "0.1.2"
+redox_syscall = "0.4.1"
+libredox = "0.0.3"
 sha2 = "0.8"
+redox-scheme = { git = "https://gitlab.redox-os.org/redox-os/redox-scheme.git" }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
-raw-cpuid = "8.1"
+raw-cpuid = "11.0.1"

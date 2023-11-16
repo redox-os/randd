@@ -1,13 +1,3 @@
-extern crate syscall;
-
-extern crate rand_chacha;
-extern crate rand_core;
-#[cfg(target_arch = "x86_64")]
-extern crate raw_cpuid;
-extern crate sha2;
-
-use std::fs::File;
-use std::io::{Read, Write};
 use std::process;
 
 use std::arch::asm;
@@ -23,10 +13,11 @@ pub const MODE_READ: u16 = 0o4;
 #[cfg(target_arch = "x86_64")]
 use raw_cpuid::CpuId;
 
-use syscall::data::{Packet, Stat};
+use redox_scheme::{Socket, SignalBehavior, SchemeMut};
+use syscall::data::Stat;
 use syscall::flag::EventFlags;
 use syscall::{
-    Error, Result, SchemeMut, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC,
+    Error, Result, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC,
     O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_STAT, O_WRONLY,
 };
 
@@ -109,7 +100,7 @@ impl OpenFileInfo {
 
 /// Struct to represent the rand scheme.
 struct RandScheme {
-    socket: File,
+    socket: Socket,
     prng: ChaCha20Rng,
     // ChaCha20 is a Cryptographically Secure PRNG
     // https://docs.rs/rand/0.5.0/rand/prng/chacha/struct.ChaChaRng.html
@@ -124,7 +115,7 @@ struct RandScheme {
 
 impl RandScheme {
     /// Create new rand scheme from a message socket
-    fn new(socket: File) -> RandScheme {
+    fn new(socket: Socket) -> RandScheme {
         RandScheme {
             socket,
             prng: ChaCha20Rng::from_seed(create_rdrand_seed()),
@@ -179,30 +170,30 @@ fn test_scheme_perms() {
     scheme.prng_stat.st_mode = MODE_CHR | 0o200;
     scheme.prng_stat.st_uid = 1;
     scheme.prng_stat.st_gid = 1;
-    assert!(scheme.open("/".as_bytes(), O_RDWR, 1, 1).is_err());
-    assert!(scheme.open("/".as_bytes(), O_RDONLY, 1, 1).is_err());
+    assert!(scheme.open("/", O_RDWR, 1, 1).is_err());
+    assert!(scheme.open("/", O_RDONLY, 1, 1).is_err());
 
     scheme.prng_stat.st_mode = MODE_CHR | 0o400;
-    let mut fd = scheme.open("".as_bytes(), O_RDONLY, 1, 1).unwrap();
+    let mut fd = scheme.open("", O_RDONLY, 1, 1).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
 
-    assert!(scheme.open("".as_bytes(), O_WRONLY, 1, 1).is_err());
-    assert!(scheme.open("".as_bytes(), O_RDWR, 1, 1).is_err());
+    assert!(scheme.open("", O_WRONLY, 1, 1).is_err());
+    assert!(scheme.open("", O_RDWR, 1, 1).is_err());
 
     scheme.prng_stat.st_mode = MODE_CHR | 0o600;
-    fd = scheme.open("".as_bytes(), O_RDWR, 1, 1).unwrap();
+    fd = scheme.open("", O_RDWR, 1, 1).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
     assert!(scheme.close(fd).is_ok());
 
-    fd = scheme.open("".as_bytes(), O_STAT, 2, 2).unwrap();
+    fd = scheme.open("", O_STAT, 2, 2).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
     fd = scheme
-        .open("".as_bytes(), O_STAT | O_CLOEXEC, 2, 2)
+        .open("", O_STAT | O_CLOEXEC, 2, 2)
         .unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
@@ -210,14 +201,14 @@ fn test_scheme_perms() {
 
     // Try another user in group (no group perms)
     fd = scheme
-        .open("".as_bytes(), O_STAT | O_CLOEXEC, 2, 1)
+        .open("", O_STAT | O_CLOEXEC, 2, 1)
         .unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
     scheme.prng_stat.st_mode = MODE_CHR | 0o660;
     fd = scheme
-        .open("".as_bytes(), O_STAT | O_CLOEXEC, 2, 1)
+        .open("", O_STAT | O_CLOEXEC, 2, 1)
         .unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
@@ -226,7 +217,7 @@ fn test_scheme_perms() {
     // Check root can do anything
     scheme.prng_stat.st_mode = MODE_CHR | 0o000;
     fd = scheme
-        .open("".as_bytes(), O_STAT | O_CLOEXEC, 0, 0)
+        .open("", O_STAT | O_CLOEXEC, 0, 0)
         .unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
@@ -235,7 +226,7 @@ fn test_scheme_perms() {
     // Check the rand:/urandom URL (Equivalent to rand:/)
     scheme.prng_stat.st_mode = MODE_CHR | 0o660;
     fd = scheme
-        .open("/urandom".as_bytes(), O_STAT | O_CLOEXEC, 2, 1)
+        .open("/urandom", O_STAT | O_CLOEXEC, 2, 1)
         .unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
@@ -285,19 +276,6 @@ impl SchemeMut for RandScheme {
         Ok(fd.0)
     }
 
-    fn chmod(&mut self, path: &str, mode: u16, uid: u32, gid: u32) -> Result<usize> {
-        // Defer to fchmod
-        let fd = self.open(path, O_WRONLY, uid, gid)?;
-        self.fchmod(fd, mode)
-    }
-
-    fn dup(&mut self, file: usize, buf: &[u8]) -> Result<usize> {
-        if !buf.is_empty() {
-            return Err(Error::new(EINVAL));
-        }
-
-        Ok(file)
-    }
     /* Resource operations */
     fn read(&mut self, file: usize, buf: &mut [u8]) -> Result<usize> {
         // Check fd and permissions
@@ -393,29 +371,17 @@ impl SchemeMut for RandScheme {
 }
 
 fn daemon(daemon: redox_daemon::Daemon) -> ! {
-    let socket = File::create(":rand").expect("randd: failed to create rand scheme");
+    let socket = Socket::create("rand").expect("randd: failed to create rand scheme");
 
     let mut scheme = RandScheme::new(socket);
 
     daemon.ready().expect("randd: failed to mark daemon as ready");
 
-    syscall::setrens(0, 0).expect("randd: failed to enter null namespace");
+    libredox::call::setrens(0, 0).expect("randd: failed to enter null namespace");
 
-    loop {
-        let mut packet = Packet::default();
-        match scheme.socket.read(&mut packet) {
-            Ok(s) => {
-                if s == 0 {
-                    break;
-                }
-                scheme.handle(&mut packet);
-                match scheme.socket.write(&packet) {
-                    Err(e) => println!("Error writing packet {}", e),
-                    _ => {}
-                }
-            }
-            Err(e) => println!("Error reading packet {}", e),
-        }
+    while let Some(request) = scheme.socket.next_request(SignalBehavior::Restart).expect("error reading packet") {
+        let response = request.handle_scheme_mut(&mut scheme);
+        scheme.socket.write_responses(&[response], SignalBehavior::Restart).expect("error writing packet");
     }
 
     process::exit(0);
