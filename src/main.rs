@@ -13,7 +13,7 @@ pub const MODE_READ: u16 = 0o4;
 #[cfg(target_arch = "x86_64")]
 use raw_cpuid::CpuId;
 
-use redox_scheme::{Socket, SignalBehavior, SchemeMut};
+use redox_scheme::{RequestKind, SchemeMut, SignalBehavior, Socket};
 use syscall::data::Stat;
 use syscall::flag::EventFlags;
 use syscall::{
@@ -380,7 +380,10 @@ fn daemon(daemon: redox_daemon::Daemon) -> ! {
     libredox::call::setrens(0, 0).expect("randd: failed to enter null namespace");
 
     while let Some(request) = scheme.socket.next_request(SignalBehavior::Restart).expect("error reading packet") {
-        let response = request.handle_scheme_mut(&mut scheme);
+        let RequestKind::Call(call) = request.kind() else {
+            continue;
+        };
+        let response = call.handle_scheme_mut(&mut scheme);
         scheme.socket.write_responses(&[response], SignalBehavior::Restart).expect("error writing packet");
     }
 
