@@ -13,12 +13,12 @@ pub const MODE_READ: u16 = 0o4;
 #[cfg(target_arch = "x86_64")]
 use raw_cpuid::CpuId;
 
-use redox_scheme::{RequestKind, SchemeMut, SignalBehavior, Socket};
+use redox_scheme::{RequestKind, SchemeMut, SignalBehavior, Socket, V2};
 use syscall::data::Stat;
 use syscall::flag::EventFlags;
 use syscall::{
-    Error, Result, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC,
-    O_CREAT, O_EXCL, O_RDONLY, O_RDWR, O_STAT, O_WRONLY,
+    Error, Result, EBADF, EBADFD, EEXIST, EINVAL, ENOENT, EPERM, MODE_CHR, O_CLOEXEC, O_CREAT,
+    O_EXCL, O_RDONLY, O_RDWR, O_STAT, O_WRONLY,
 };
 
 // Create an RNG Seed to create initial seed from the rdrand intel instruction
@@ -192,42 +192,32 @@ fn test_scheme_perms() {
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
-    fd = scheme
-        .open("", O_STAT | O_CLOEXEC, 2, 2)
-        .unwrap();
+    fd = scheme.open("", O_STAT | O_CLOEXEC, 2, 2).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
 
     // Try another user in group (no group perms)
-    fd = scheme
-        .open("", O_STAT | O_CLOEXEC, 2, 1)
-        .unwrap();
+    fd = scheme.open("", O_STAT | O_CLOEXEC, 2, 1).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_err());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_err());
     assert!(scheme.close(fd).is_ok());
     scheme.prng_stat.st_mode = MODE_CHR | 0o660;
-    fd = scheme
-        .open("", O_STAT | O_CLOEXEC, 2, 1)
-        .unwrap();
+    fd = scheme.open("", O_STAT | O_CLOEXEC, 2, 1).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
     assert!(scheme.close(fd).is_ok());
 
     // Check root can do anything
     scheme.prng_stat.st_mode = MODE_CHR | 0o000;
-    fd = scheme
-        .open("", O_STAT | O_CLOEXEC, 0, 0)
-        .unwrap();
+    fd = scheme.open("", O_STAT | O_CLOEXEC, 0, 0).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
     assert!(scheme.close(fd).is_ok());
 
     // Check the rand:/urandom URL (Equivalent to rand:/)
     scheme.prng_stat.st_mode = MODE_CHR | 0o660;
-    fd = scheme
-        .open("/urandom", O_STAT | O_CLOEXEC, 2, 1)
-        .unwrap();
+    fd = scheme.open("/urandom", O_STAT | O_CLOEXEC, 2, 1).unwrap();
     assert!(scheme.can_perform_op_on_fd(fd, MODE_READ).is_ok());
     assert!(scheme.can_perform_op_on_fd(fd, MODE_WRITE).is_ok());
     assert!(scheme.close(fd).is_ok());
@@ -277,7 +267,7 @@ impl SchemeMut for RandScheme {
     }
 
     /* Resource operations */
-    fn read(&mut self, file: usize, buf: &mut [u8]) -> Result<usize> {
+    fn read(&mut self, file: usize, buf: &mut [u8], _offset: u64, _flags: u32) -> Result<usize> {
         // Check fd and permissions
         self.can_perform_op_on_fd(file, MODE_READ)?;
 
@@ -289,7 +279,7 @@ impl SchemeMut for RandScheme {
         Ok(buf.len())
     }
 
-    fn write(&mut self, file: usize, buf: &[u8]) -> Result<usize> {
+    fn write(&mut self, file: usize, buf: &[u8], _offset: u64, _flags: u32) -> Result<usize> {
         // Check fd and permissions
         self.can_perform_op_on_fd(file, MODE_WRITE)?;
 
@@ -371,20 +361,29 @@ impl SchemeMut for RandScheme {
 }
 
 fn daemon(daemon: redox_daemon::Daemon) -> ! {
-    let socket = Socket::create("rand").expect("randd: failed to create rand scheme");
+    let socket = Socket::<V2>::create("rand").expect("randd: failed to create rand scheme");
 
     let mut scheme = RandScheme::new(socket);
 
-    daemon.ready().expect("randd: failed to mark daemon as ready");
+    daemon
+        .ready()
+        .expect("randd: failed to mark daemon as ready");
 
     libredox::call::setrens(0, 0).expect("randd: failed to enter null namespace");
 
-    while let Some(request) = scheme.socket.next_request(SignalBehavior::Restart).expect("error reading packet") {
+    while let Some(request) = scheme
+        .socket
+        .next_request(SignalBehavior::Restart)
+        .expect("error reading packet")
+    {
         let RequestKind::Call(call) = request.kind() else {
             continue;
         };
         let response = call.handle_scheme_mut(&mut scheme);
-        scheme.socket.write_responses(&[response], SignalBehavior::Restart).expect("error writing packet");
+        scheme
+            .socket
+            .write_responses(&[response], SignalBehavior::Restart)
+            .expect("error writing packet");
     }
 
     process::exit(0);
